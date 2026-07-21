@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -32,7 +32,8 @@ jobs:
 
       - name: Get package information
         id: package
-        working-directory: stable
+        working-directory: principia
+        shell: bash
         run: |
           source PKGBUILD
 
@@ -42,7 +43,10 @@ jobs:
       - name: Create build user
         run: |
           useradd --create-home builder
+          echo "builder ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/builder
+          chmod 440 /etc/sudoers.d/builder
           chown -R builder:builder "$GITHUB_WORKSPACE"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Check package cache
         id: cache
@@ -113,6 +117,8 @@ jobs:
       - name: Create build user
         run: |
           useradd --create-home builder
+          echo "builder ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/builder
+          chmod 440 /etc/sudoers.d/builder
           chown -R builder:builder "$GITHUB_WORKSPACE"
 
       - name: Build package

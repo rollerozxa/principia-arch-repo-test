@@ -31,7 +31,7 @@ jobs:
           pacman -S --noconfirm base-devel git github-cli
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Get package information
         id: package
@@ -115,7 +115,7 @@ jobs:
           pacman -S --noconfirm base-devel git
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Create build user
         run: |
@@ -130,7 +130,7 @@ jobs:
           su builder -c 'makepkg --syncdeps --noconfirm --cleanbuild'
 
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: principia-git
           path: principia-git/*.pkg.tar.*
@@ -147,16 +147,16 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download stable package
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: principia
           path: repo/x86_64
 
       - name: Download -git package
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: principia-git
           path: repo/x86_64

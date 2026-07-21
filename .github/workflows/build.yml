@@ -11,6 +11,9 @@ permissions:
   pages: write
   id-token: write
 
+env:
+  PACKAGER: "ROllerozxa <rollerozxa@voxelmanip.se>"
+
 jobs:
   build-stable:
     name: Build stable package
@@ -143,6 +146,9 @@ jobs:
       image: archlinux:latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Download stable package
         uses: actions/download-artifact@v4
         with:

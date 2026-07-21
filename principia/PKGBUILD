@@ -15,10 +15,16 @@ options=(!lto)
 
 build() {
 	cd "${pkgname}-${pkgver}"
+
 	mkdir -p build
 	cd build
 	# Upstream recommends building with Clang
-	cmake .. -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DCMAKE_INSTALL_PREFIX=/usr -G Ninja
+	cmake .. \
+		-DCMAKE_BUILD_TYPE=RelWithDebInfo \
+		-DCMAKE_C_COMPILER=/usr/bin/clang \
+		-DCMAKE_CXX_COMPILER=/usr/bin/clang++ \
+		-DCMAKE_INSTALL_PREFIX=/usr \
+		-G Ninja
 	ninja
 }
 

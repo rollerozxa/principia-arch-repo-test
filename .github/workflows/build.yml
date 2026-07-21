@@ -1,0 +1,173 @@
+name: Build Principia Arch packages
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build-stable:
+    name: Build stable package
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+
+    outputs:
+      package: ${{ steps.package.outputs.package }}
+
+    steps:
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm base-devel git github-cli
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get package information
+        id: package
+        working-directory: stable
+        run: |
+          source PKGBUILD
+
+          echo "name=$pkgname" >> "$GITHUB_OUTPUT"
+          echo "version=$pkgver-$pkgrel" >> "$GITHUB_OUTPUT"
+
+      - name: Create build user
+        run: |
+          useradd --create-home builder
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+
+      - name: Check package cache
+        id: cache
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_NAME: ${{ steps.package.outputs.name }}
+          PACKAGE_VERSION: ${{ steps.package.outputs.version }}
+        run: |
+          if gh release view stable-cache >/dev/null 2>&1; then
+            if gh release view stable-cache \
+                --json assets \
+                --jq '.assets[].name' |
+                grep -q "^${PACKAGE_NAME}-${PACKAGE_VERSION}-"; then
+              echo "hit=true" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+          echo "Cache hit: ${hit:-false}"
+
+      - name: Download cached package
+        if: steps.cache.outputs.hit == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_NAME: ${{ steps.package.outputs.name }}
+          PACKAGE_VERSION: ${{ steps.package.outputs.version }}
+        run: |
+          gh release download stable-cache \
+            --pattern "${PACKAGE_NAME}-${PACKAGE_VERSION}-*.pkg.tar.*" \
+            --dir principia
+
+      - name: Build package
+        if: steps.cache.outputs.hit != 'true'
+        working-directory: principia
+        run: |
+          su builder -c 'makepkg --syncdeps --noconfirm --cleanbuild'
+
+      - name: Upload package to cache
+        if: steps.cache.outputs.hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view stable-cache >/dev/null 2>&1; then
+            gh release create stable-cache
+          fi
+
+          gh release upload stable-cache principia/*.pkg.tar.* --clobber
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: principia
+          path: principia/*.pkg.tar.*
+
+  build-git:
+    name: Build -git package
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+
+    steps:
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm base-devel git
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create build user
+        run: |
+          useradd --create-home builder
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+
+      - name: Build package
+        working-directory: principia-git
+        run: |
+          su builder -c 'makepkg --syncdeps --noconfirm --cleanbuild'
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: principia-git
+          path: principia-git/*.pkg.tar.*
+
+  publish:
+    name: Publish pacman repository
+    needs:
+      - build-stable
+      - build-git
+
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+
+    steps:
+      - name: Download stable package
+        uses: actions/download-artifact@v4
+        with:
+          name: principia
+          path: repo/x86_64
+
+      - name: Download -git package
+        uses: actions/download-artifact@v4
+        with:
+          name: principia-git
+          path: repo/x86_64
+
+      - name: Install Arch tools
+        run: |
+          cd repo/x86_64
+          repo-add principia.db.tar.zst *.pkg.tar.zst
+
+          rm principia.db
+          mv principia.db.tar.zst principia.db
+
+          rm principia.files
+          mv principia.files.tar.zst principia.files
+
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: repo
+
+      - name: Deploy to Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

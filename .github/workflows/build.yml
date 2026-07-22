@@ -77,6 +77,7 @@ jobs:
         run: |
           gh release download stable-cache \
             --pattern "${PACKAGE_NAME}-${PACKAGE_VERSION}-*.pkg.tar.*" \
+            --pattern "${PACKAGE_NAME}-debug-${PACKAGE_VERSION}-*.pkg.tar.*" \
             --dir principia
 
       - name: Build package
